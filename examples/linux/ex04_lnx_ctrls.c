@@ -4,7 +4,8 @@
 // - https://www.impulseadventure.com/elec/guislice-gui.html
 // - https://github.com/ImpulseAdventure/GUIslice
 // - Example 04 (LINUX): Dynamic content
-//     Demonstrates push buttons, checkboxes and slider controls
+//   - Demonstrates push buttons, checkboxes and slider controls
+//   - Shows callback notifications for checkboxes and radio buttons
 //
 
 #include "GUIslice.h"
@@ -49,6 +50,13 @@ gslc_tsXSlider              m_sXSlider;
 // Enable frame/update rate reporting? (1 to enable, 0 to disable)
 #define TEST_UPDATE_RATE     0
 
+  // Save some element references for quick access
+  gslc_tsElemRef*  m_pElemCnt        = NULL;
+  gslc_tsElemRef*  m_pElemProgress   = NULL;
+  gslc_tsElemRef*  m_pElemProgress1  = NULL;
+  gslc_tsElemRef*  m_pElemSlider     = NULL;
+  
+  
 // Configure environment variables suitable for display
 // - These may need modification to match your system
 //   environment and display type
@@ -78,11 +86,52 @@ void UserInitEnv()
 static int16_t DebugOut(char ch) { fputc(ch,stderr); return 0; }
 
 // Button callbacks
-bool CbBtnQuit(void* pvGui,void *pvElemRef,gslc_teTouch eTouch,int16_t nX,int16_t nY)
+// - Detect a button press
+// - In this particular example, we are looking for the Quit button press
+//   which is used to terminate the program.
+bool CbBtnQuit(void* pvGui,void *pvElem,gslc_teTouch eTouch,int16_t nX,int16_t nY)
 {
   if (eTouch == GSLC_TOUCH_UP_IN) {
     m_bQuit = true;
   }
+  return true;
+}
+
+// Checkbox / radio callbacks
+// - Creating a callback function is optional, but doing so enables you to
+//   detect changes in the state of the elements.
+bool CbCheckbox(void* pvGui, void* pvElemRef, int16_t nSelId, bool bChecked)
+{
+  gslc_tsGui*     pGui      = (gslc_tsGui*)(pvGui);
+  gslc_tsElemRef* pElemRef  = (gslc_tsElemRef*)(pvElemRef);
+  gslc_tsElem*    pElem     = gslc_GetElemFromRef(pGui,pElemRef);
+  if (pElemRef == NULL) {
+    return false;
+  }
+
+  // Determine which element issued the callback
+  switch (pElem->nId) {
+    case E_ELEM_CHECK1:
+      GSLC_DEBUG_PRINT("Callback: Check[ID=%d] state=%u\n", pElem->nId,bChecked);
+      // Demonstrate changing visibility of another element
+      gslc_ElemSetShow(pGui, m_pElemProgress1, bChecked);
+      break;
+    case E_ELEM_RADIO1:
+    case E_ELEM_RADIO2:
+      // For the radio buttons, determine which ID is currently selected (nSelId)
+      // - Note that this may not always be the same as the element that
+      //   issued the callback (pElem->nId)
+      // - A return value of GSLC_ID_NONE indicates that no radio buttons
+      //   in the group are currently selected
+      if (nSelId == GSLC_ID_NONE) {
+        GSLC_DEBUG_PRINT("Callback: Radio[ID=NONE] selected\n", "");
+      } else {
+        GSLC_DEBUG_PRINT("Callback: Radio[ID=%d] selected\n", nSelId);
+      }
+      break;
+    default:
+      break;
+  } // switch
   return true;
 }
 
@@ -113,24 +162,28 @@ bool InitOverlays()
   pElemRef = gslc_ElemCreateTxt(&m_gui,E_ELEM_TXT_COUNT,E_PG_MAIN,(gslc_tsRect){80,60,50,10},
     "",0,E_FONT_TXT);
   gslc_ElemSetTxtCol(&m_gui,pElemRef,GSLC_COL_YELLOW);
+  m_pElemCnt = pElemRef; // Save for quick access
 
   // Create progress bar (horizontal)
   pElemRef = gslc_ElemCreateTxt(&m_gui,GSLC_ID_AUTO,E_PG_MAIN,(gslc_tsRect){20,80,50,10},
     "Progress:",0,E_FONT_TXT);
   pElemRef = gslc_ElemXGaugeCreate(&m_gui,E_ELEM_PROGRESS,E_PG_MAIN,&m_sXGauge,
     (gslc_tsRect){80,80,50,10},0,100,0,GSLC_COL_GREEN,false);
+  m_pElemProgress = pElemRef; // Save for quick access
 
   // Second progress bar (vertical)
   // - Demonstration of vertical bar with offset zero-pt showing both positive and negative range
   pElemRef = gslc_ElemXGaugeCreate(&m_gui,E_ELEM_PROGRESS1,E_PG_MAIN,&m_sXGauge1,
     (gslc_tsRect){280,80,10,100},-25,75,-15,GSLC_COL_RED,true);
   gslc_ElemSetCol(&m_gui,pElemRef,GSLC_COL_BLUE_DK3,GSLC_COL_BLACK,GSLC_COL_BLACK);
+  m_pElemProgress1 = pElemRef; // Save for quick access
 
   // Create checkbox 1
   pElemRef = gslc_ElemCreateTxt(&m_gui,GSLC_ID_AUTO,E_PG_MAIN,(gslc_tsRect){20,100,20,20},
     "Check1:",0,E_FONT_TXT);
   pElemRef = gslc_ElemXCheckboxCreate(&m_gui,E_ELEM_CHECK1,E_PG_MAIN,&m_asXCheck[0],
-    (gslc_tsRect){80,100,20,20},false,GSLCX_CHECKBOX_STYLE_X,GSLC_COL_BLUE_LT2,false);
+    (gslc_tsRect){80,100,20,20},false,GSLCX_CHECKBOX_STYLE_X,GSLC_COL_BLUE_LT2,true);
+  gslc_ElemXCheckboxSetStateFunc(&m_gui, pElemRef, &CbCheckbox);
 
   // Create radio 1
   pElemRef = gslc_ElemCreateTxt(&m_gui,GSLC_ID_AUTO,E_PG_MAIN,(gslc_tsRect){20,135,20,20},
@@ -138,6 +191,7 @@ bool InitOverlays()
   pElemRef = gslc_ElemXCheckboxCreate(&m_gui,E_ELEM_RADIO1,E_PG_MAIN,&m_asXCheck[1],
     (gslc_tsRect){80,135,20,20},true,GSLCX_CHECKBOX_STYLE_ROUND,GSLC_COL_ORANGE,false);
   gslc_ElemSetGroup(&m_gui,pElemRef,E_GROUP1);
+  gslc_ElemXCheckboxSetStateFunc(&m_gui, pElemRef, &CbCheckbox);
 
   // Create radio 2
   pElemRef = gslc_ElemCreateTxt(&m_gui,GSLC_ID_AUTO,E_PG_MAIN,(gslc_tsRect){20,160,20,20},
@@ -145,12 +199,14 @@ bool InitOverlays()
   pElemRef = gslc_ElemXCheckboxCreate(&m_gui,E_ELEM_RADIO2,E_PG_MAIN,&m_asXCheck[2],
     (gslc_tsRect){80,160,20,20},true,GSLCX_CHECKBOX_STYLE_ROUND,GSLC_COL_ORANGE,false);
   gslc_ElemSetGroup(&m_gui,pElemRef,E_GROUP1);
+  gslc_ElemXCheckboxSetStateFunc(&m_gui, pElemRef, &CbCheckbox);
 
   // Create slider
   pElemRef = gslc_ElemXSliderCreate(&m_gui,E_ELEM_SLIDER,E_PG_MAIN,&m_sXSlider,
     (gslc_tsRect){160,140,100,20},0,100,60,5,false);
   gslc_ElemXSliderSetStyle(&m_gui,pElemRef,true,(gslc_tsColor){0,0,128},10,
           5,(gslc_tsColor){64,64,64});
+  m_pElemSlider = pElemRef; // Save for quick access
   pElemRef = gslc_ElemCreateTxt(&m_gui,E_ELEM_TXT_SLIDER,E_PG_MAIN,(gslc_tsRect){160,160,80,20},
     "Slider: ???",0,E_FONT_TXT);
 

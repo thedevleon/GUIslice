@@ -109,6 +109,8 @@ bool CbCheckbox(void* pvGui, void* pvElemRef, int16_t nSelId, bool bChecked)
   switch (pElem->nId) {
     case E_ELEM_CHECK1:
       GSLC_DEBUG_PRINT("Callback: Check[ID=%d] state=%u\n", pElem->nId,bChecked);
+      // Demonstrate changing visibility of another element
+      gslc_ElemSetShow(pGui, m_pElemProgress1, bChecked);
       break;
     case E_ELEM_RADIO1:
     case E_ELEM_RADIO2:
@@ -126,6 +128,7 @@ bool CbCheckbox(void* pvGui, void* pvElemRef, int16_t nSelId, bool bChecked)
     default:
       break;
   } // switch
+  return true;
 }
 
 
@@ -176,7 +179,7 @@ bool InitOverlays()
   pElemRef = gslc_ElemCreateTxt(&m_gui,GSLC_ID_AUTO,E_PG_MAIN,(gslc_tsRect){20,100,20,20},
     (char*)"Check1:",0,E_FONT_TXT);
   pElemRef = gslc_ElemXCheckboxCreate(&m_gui,E_ELEM_CHECK1,E_PG_MAIN,&m_asXCheck[0],
-    (gslc_tsRect){80,100,20,20},false,GSLCX_CHECKBOX_STYLE_X,GSLC_COL_BLUE_LT2,false);
+    (gslc_tsRect){80,100,20,20},false,GSLCX_CHECKBOX_STYLE_X,GSLC_COL_BLUE_LT2,true);
   gslc_ElemXCheckboxSetStateFunc(&m_gui, pElemRef, &CbCheckbox);
 
   // Create radio 1
